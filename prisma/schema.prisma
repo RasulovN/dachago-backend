@@ -1,0 +1,238 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  SELLER
+}
+
+enum UserStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  BLOCKED
+}
+
+enum DachaStatus {
+  DRAFT
+  PENDING
+  ACTIVE
+  REJECTED
+  ARCHIVED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  NOT_REQUIRED
+  AWAITING
+  PAID
+  REFUNDED
+}
+
+enum DepositType {
+  FIXED
+  PERCENT
+}
+
+model User {
+  id        String     @id @default(cuid())
+  phone     String     @unique
+  email     String?
+  password  String
+  role      UserRole   @default(SELLER)
+  status    UserStatus @default(PENDING)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  sellerProfile SellerProfile?
+  dachas        Dacha[]
+  refreshTokens RefreshToken[]
+
+  @@index([role, status])
+}
+
+model SellerProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName       String
+  lastName        String
+  companyName     String?
+  passportInfo    String
+  address         String
+  avatar          String?
+  rejectionReason String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Zone {
+  id       String  @id @default(cuid())
+  slug     String  @unique
+  nameUz   String
+  nameRu   String
+  nameEn   String
+  descUz   String  @default("")
+  descRu   String  @default("")
+  descEn   String  @default("")
+  image    String?
+  isActive Boolean @default(true)
+  order    Int     @default(0)
+
+  dachas    Dacha[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Amenity {
+  id     String @id @default(cuid())
+  icon   String
+  nameUz String
+  nameRu String
+  nameEn String
+  order  Int    @default(0)
+
+  dachas    DachaAmenity[]
+  createdAt DateTime       @default(now())
+}
+
+model Dacha {
+  id            String      @id @default(cuid())
+  slug          String      @unique
+  sellerId      String
+  seller        User        @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  zoneId        String
+  zone          Zone        @relation(fields: [zoneId], references: [id])
+  titleUz       String
+  titleRu       String
+  titleEn       String
+  descUz        String
+  descRu        String
+  descEn        String
+  pricePerDay   Int
+  priceWeekend  Int?
+  capacity      Int
+  rooms         Int
+  area          Int?
+  lat           Float
+  lng           Float
+  address       String
+  status        DachaStatus @default(PENDING)
+  rejectionReason String?
+  depositEnabled Boolean    @default(false)
+  depositType   DepositType @default(FIXED)
+  depositValue  Int         @default(0)
+  checkInTime   String      @default("14:00")
+  checkOutTime  String      @default("12:00")
+  viewsCount    Int         @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  images    DachaImage[]
+  videos    DachaVideo[]
+  amenities DachaAmenity[]
+  bookings  Booking[]
+
+  @@index([status])
+  @@index([zoneId])
+  @@index([sellerId])
+}
+
+model DachaImage {
+  id       String @id @default(cuid())
+  dachaId  String
+  dacha    Dacha  @relation(fields: [dachaId], references: [id], onDelete: Cascade)
+  url      String
+  thumbUrl String
+  order    Int    @default(0)
+
+  @@index([dachaId])
+}
+
+model DachaVideo {
+  id      String @id @default(cuid())
+  dachaId String
+  dacha   Dacha  @relation(fields: [dachaId], references: [id], onDelete: Cascade)
+  url     String
+  size    Int
+  order   Int    @default(0)
+
+  @@index([dachaId])
+}
+
+model DachaAmenity {
+  dachaId   String
+  dacha     Dacha   @relation(fields: [dachaId], references: [id], onDelete: Cascade)
+  amenityId String
+  amenity   Amenity @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  @@id([dachaId, amenityId])
+}
+
+model Booking {
+  id            String        @id @default(cuid())
+  code          String        @unique
+  dachaId       String
+  dacha         Dacha         @relation(fields: [dachaId], references: [id], onDelete: Cascade)
+  guestName     String
+  guestPhone    String
+  checkIn       DateTime
+  checkOut      DateTime
+  guestsCount   Int
+  totalPrice    Int
+  depositAmount Int?
+  status        BookingStatus @default(PENDING)
+  paymentStatus PaymentStatus @default(NOT_REQUIRED)
+  note          String?
+  expiresAt     DateTime?
+  // Sellerga zaklad to'lovi (payout)
+  sellerPaidOut Boolean       @default(false)
+  paidOutAt     DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  transactions PaymeTransaction[]
+
+  @@index([dachaId, status])
+  @@index([status])
+}
+
+model PaymeTransaction {
+  id          String   @id @default(cuid())
+  paymeId     String   @unique
+  bookingId   String
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  amount      Int
+  state       Int      @default(1)
+  createTime  BigInt
+  performTime BigInt   @default(0)
+  cancelTime  BigInt   @default(0)
+  reason      Int?
+  createdAt   DateTime @default(now())
+
+  @@index([bookingId])
+}
