@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { zoneInputSchema, amenityInputSchema } from '@dacha/shared';
+import { zoneInputSchema, amenityInputSchema, siteSettingsSchema } from '@dacha/shared';
 import { MAX_IMAGE_SIZE, ALLOWED_IMAGE_TYPES } from '@dacha/shared';
 import { prisma } from '../lib/prisma.js';
 import { notFound, badRequest } from '../lib/errors.js';
@@ -401,23 +401,192 @@ export default async function adminRoutes(app: FastifyInstance) {
     }));
   });
 
-  // --- Sellerga zaklad to'lovini belgilash / bekor qilish ---
+  // ============ PAYOUT (sellerga zaklad o'tkazish) ============
+  // Har bir to'lov Payout hujjati sifatida saqlanadi — tarix to'liq kuzatiladi.
+
+  const payoutDTO = (p: {
+    id: string;
+    amount: number;
+    note: string;
+    createdAt: Date;
+    seller: { id: string; phone: string; sellerProfile: { firstName: string; lastName: string } | null };
+    bookings: { id: string; code: string; depositAmount: number | null; guestName: string }[];
+  }) => ({
+    id: p.id,
+    amount: p.amount,
+    note: p.note,
+    createdAt: p.createdAt,
+    seller: {
+      id: p.seller.id,
+      name: p.seller.sellerProfile
+        ? `${p.seller.sellerProfile.firstName} ${p.seller.sellerProfile.lastName}`
+        : p.seller.phone,
+      phone: p.seller.phone,
+    },
+    bookings: p.bookings.map((b) => ({
+      id: b.id,
+      code: b.code,
+      guestName: b.guestName,
+      depositAmount: b.depositAmount ?? 0,
+    })),
+  });
+
+  const payoutInclude = {
+    seller: { include: { sellerProfile: true } },
+    bookings: true,
+  } as const;
+
+  // --- To'lovlar tarixi ---
+  app.get('/payouts', async (req) => {
+    const q = req.query as { sellerId?: string };
+    const payouts = await prisma.payout.findMany({
+      where: q.sellerId ? { sellerId: q.sellerId } : {},
+      include: payoutInclude,
+      orderBy: { createdAt: 'desc' },
+    });
+    return payouts.map(payoutDTO);
+  });
+
+  // --- To'lov yaratish: tanlangan bronlar zakladini bitta hujjatga birlashtiradi ---
+  app.post('/payouts', async (req) => {
+    const body = req.body as { sellerId: string; bookingIds: string[]; note?: string };
+    if (!body.sellerId) throw badRequest('Seller tanlanmagan');
+    if (!Array.isArray(body.bookingIds) || body.bookingIds.length === 0)
+      throw badRequest('Kamida bitta bron tanlanishi kerak');
+
+    const payout = await prisma.$transaction(async (tx) => {
+      const bookings = await tx.booking.findMany({
+        where: { id: { in: body.bookingIds } },
+        include: { dacha: { select: { sellerId: true } } },
+      });
+
+      if (bookings.length !== body.bookingIds.length)
+        throw badRequest('Ba\'zi bronlar topilmadi');
+      for (const b of bookings) {
+        if (b.dacha.sellerId !== body.sellerId)
+          throw badRequest(`${b.code} broni bu sellerga tegishli emas`);
+        if (!b.depositAmount || b.paymentStatus !== 'PAID')
+          throw badRequest(`${b.code} bronida to'langan zaklad yo'q`);
+        if (b.sellerPaidOut)
+          throw badRequest(`${b.code} broni bo'yicha to'lov allaqachon qilingan`);
+      }
+
+      const amount = bookings.reduce((sum, b) => sum + (b.depositAmount ?? 0), 0);
+      const created = await tx.payout.create({
+        data: {
+          sellerId: body.sellerId,
+          amount,
+          note: body.note?.trim() ?? '',
+        },
+      });
+      await tx.booking.updateMany({
+        where: { id: { in: body.bookingIds } },
+        data: { sellerPaidOut: true, paidOutAt: new Date(), payoutId: created.id },
+      });
+
+      return tx.payout.findUniqueOrThrow({ where: { id: created.id }, include: payoutInclude });
+    });
+
+    return payoutDTO(payout);
+  });
+
+  // --- To'lovni bekor qilish: bronlar yana "to'lanmagan" holatga qaytadi ---
+  app.delete('/payouts/:id', async (req) => {
+    const { id } = req.params as { id: string };
+    await prisma.$transaction(async (tx) => {
+      const payout = await tx.payout.findUnique({ where: { id } });
+      if (!payout) throw notFound('To\'lov topilmadi');
+      await tx.booking.updateMany({
+        where: { payoutId: id },
+        data: { sellerPaidOut: false, paidOutAt: null, payoutId: null },
+      });
+      await tx.payout.delete({ where: { id } });
+    });
+    return { ok: true };
+  });
+
+  // --- Bitta bron bo'yicha tezkor to'lov / bekor qilish (payout hujjati bilan) ---
   app.patch('/bookings/:id/payout', async (req) => {
     const { id } = req.params as { id: string };
     const body = req.body as { paidOut: boolean };
 
-    const booking = await prisma.booking.findUnique({ where: { id } });
+    const booking = await prisma.booking.findUnique({
+      where: { id },
+      include: { dacha: { select: { sellerId: true } } },
+    });
     if (!booking) throw notFound('Bron topilmadi');
     if (!booking.depositAmount || booking.paymentStatus !== 'PAID')
       throw badRequest('Bu bronda to\'langan zaklad yo\'q');
 
-    const updated = await prisma.booking.update({
-      where: { id },
-      data: {
-        sellerPaidOut: body.paidOut,
-        paidOutAt: body.paidOut ? new Date() : null,
-      },
-    });
+    if (body.paidOut) {
+      // To'lov yaratish (bitta bronlik hujjat)
+      if (booking.sellerPaidOut) throw badRequest('Bu bron bo\'yicha to\'lov allaqachon qilingan');
+      await prisma.$transaction(async (tx) => {
+        const created = await tx.payout.create({
+          data: { sellerId: booking.dacha.sellerId, amount: booking.depositAmount ?? 0, note: '' },
+        });
+        await tx.booking.update({
+          where: { id },
+          data: { sellerPaidOut: true, paidOutAt: new Date(), payoutId: created.id },
+        });
+      });
+    } else {
+      // Bekor qilish: bron payout hujjatidan chiqariladi, summa qayta hisoblanadi
+      await prisma.$transaction(async (tx) => {
+        const payoutId = booking.payoutId;
+        await tx.booking.update({
+          where: { id },
+          data: { sellerPaidOut: false, paidOutAt: null, payoutId: null },
+        });
+        if (payoutId) {
+          const remaining = await tx.booking.aggregate({
+            where: { payoutId },
+            _sum: { depositAmount: true },
+            _count: { _all: true },
+          });
+          if (remaining._count._all === 0) {
+            await tx.payout.delete({ where: { id: payoutId } });
+          } else {
+            await tx.payout.update({
+              where: { id: payoutId },
+              data: { amount: remaining._sum.depositAmount ?? 0 },
+            });
+          }
+        }
+      });
+    }
+
+    const updated = await prisma.booking.findUniqueOrThrow({ where: { id } });
     return { ok: true, sellerPaidOut: updated.sellerPaidOut, paidOutAt: updated.paidOutAt };
+  });
+
+  // --- Sayt sozlamalari (aloqa + ijtimoiy tarmoqlar) ---
+  app.get('/settings', async () => {
+    const s = await prisma.siteSettings.upsert({ where: { id: 1 }, update: {}, create: {} });
+    return {
+      phone: s.phone,
+      email: s.email,
+      telegram: s.telegram,
+      instagram: s.instagram,
+      youtube: s.youtube,
+      updatedAt: s.updatedAt.toISOString(),
+    };
+  });
+
+  app.patch('/settings', async (req) => {
+    const data = siteSettingsSchema.partial().parse(req.body);
+    const s = await prisma.siteSettings.upsert({
+      where: { id: 1 },
+      update: data,
+      create: data,
+    });
+    return {
+      phone: s.phone,
+      email: s.email,
+      telegram: s.telegram,
+      instagram: s.instagram,
+      youtube: s.youtube,
+      updatedAt: s.updatedAt.toISOString(),
+    };
   });
 }

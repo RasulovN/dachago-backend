@@ -23,6 +23,10 @@ async function main() {
   });
   console.log(`✅ Super admin: ${admin.phone} / admin123`);
 
+  // --- Sayt sozlamalari (aloqa + ijtimoiy tarmoqlar) ---
+  await prisma.siteSettings.upsert({ where: { id: 1 }, update: {}, create: {} });
+  console.log('✅ Sayt sozlamalari (standart qiymatlar bilan)');
+
   // --- Zonalar ---
   const zonesData = [
     {

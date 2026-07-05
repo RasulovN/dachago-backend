@@ -133,6 +133,7 @@ Statuslar:
 
 | Metod | Yo'l | Tavsif |
 |---|---|---|
+| GET | `/api/settings` | Sayt sozlamalari: telefon, email, ijtimoiy tarmoqlar + Payme public config (merchantId, checkoutUrl) |
 | GET | `/api/zones` | Barcha zonalar (dacha soni bilan) |
 | GET | `/api/zones/:slug` | Bitta zona |
 | GET | `/api/amenities` | Qulayliklar ro'yxati |
@@ -178,8 +179,12 @@ Statuslar:
 | GET/PATCH | `/api/admin/dachas`, `/dachas/:id` | Moderatsiya (ACTIVE/REJECTED) |
 | GET | `/api/admin/bookings` | Barcha bronlar |
 | GET | `/api/admin/finance`, `/finance/bookings` | Moliya: zakalat tushumlari |
-| PATCH | `/api/admin/bookings/:id/payout` | Sellerga payout belgilash |
+| GET | `/api/admin/payouts?sellerId=` | To'lovlar (payout) tarixi |
+| POST | `/api/admin/payouts` | To'lov yaratish: `{sellerId, bookingIds[], note}` — bronlar zakladini bitta hujjatga birlashtiradi |
+| DELETE | `/api/admin/payouts/:id` | To'lovni bekor qilish (bronlar "to'lanmagan"ga qaytadi) |
+| PATCH | `/api/admin/bookings/:id/payout` | Bitta bron bo'yicha tezkor to'lov/bekor (payout hujjati bilan) |
 | POST | `/api/admin/upload` | Fayl yuklash (zona rasmlari uchun) |
+| GET/PATCH | `/api/admin/settings` | Sayt sozlamalari (telefon, email, Telegram/Instagram/YouTube) tahrirlash |
 
 ### Boshqa
 

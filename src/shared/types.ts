@@ -118,3 +118,14 @@ export interface ApiError {
   message: string;
   details?: unknown;
 }
+
+export interface SiteSettingsDTO {
+  phone: string;
+  email: string;
+  telegram: string;
+  instagram: string;
+  youtube: string;
+  updatedAt?: string;
+  /** Payme public konfiguratsiyasi — backend .env dan keladi (kalit emas!) */
+  payme?: { merchantId: string; checkoutUrl: string };
+}

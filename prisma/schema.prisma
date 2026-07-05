@@ -60,6 +60,7 @@ model User {
   sellerProfile SellerProfile?
   dachas        Dacha[]
   refreshTokens RefreshToken[]
+  payouts       Payout[]
 
   @@index([role, status])
 }
@@ -212,6 +213,8 @@ model Booking {
   // Sellerga zaklad to'lovi (payout)
   sellerPaidOut Boolean       @default(false)
   paidOutAt     DateTime?
+  payoutId      String?
+  payout        Payout?       @relation(fields: [payoutId], references: [id], onDelete: SetNull)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -219,6 +222,20 @@ model Booking {
 
   @@index([dachaId, status])
   @@index([status])
+  @@index([payoutId])
+}
+
+// Sellerga zaklad mablag'ini o'tkazish hujjati — bir to'lov bir nechta bronni qamrab oladi
+model Payout {
+  id        String   @id @default(cuid())
+  sellerId  String
+  seller    User     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  amount    Int
+  note      String   @default("")
+  createdAt DateTime @default(now())
+  bookings  Booking[]
+
+  @@index([sellerId])
 }
 
 model PaymeTransaction {
@@ -235,4 +252,14 @@ model PaymeTransaction {
   createdAt   DateTime @default(now())
 
   @@index([bookingId])
+}
+
+model SiteSettings {
+  id        Int      @id @default(1)
+  phone     String   @default("+998 78 113 00 13")
+  email     String   @default("info@dachago.uz")
+  telegram  String   @default("https://t.me/dachago_uz")
+  instagram String   @default("https://instagram.com/dachago.uz")
+  youtube   String   @default("https://youtube.com/@dachago")
+  updatedAt DateTime @default(now()) @updatedAt
 }

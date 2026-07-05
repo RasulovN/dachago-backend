@@ -109,3 +109,13 @@ export const sellerSettingsSchema = z.object({
   companyName: z.string().trim().optional().nullable(),
   address: z.string().trim().optional(),
 });
+
+// ---- Sayt sozlamalari (super admin) ----
+export const siteSettingsSchema = z.object({
+  phone: z.string().trim().min(5).max(30),
+  email: z.string().trim().email(),
+  telegram: z.string().trim().url().or(z.literal('')),
+  instagram: z.string().trim().url().or(z.literal('')),
+  youtube: z.string().trim().url().or(z.literal('')),
+});
+export type SiteSettingsInput = z.infer<typeof siteSettingsSchema>;

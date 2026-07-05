@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { bookingInputSchema } from '@dacha/shared';
+import { env } from '../config/env.js';
 import { prisma } from '../lib/prisma.js';
 import { notFound, badRequest } from '../lib/errors.js';
 import { dachaDTO, dachaInclude, zoneDTO, bookingDTO } from '../lib/mappers.js';
@@ -12,13 +13,38 @@ import {
 import { bookingCode } from '../lib/slug.js';
 import { BOOKING_PENDING_TTL_HOURS } from '@dacha/shared';
 
+// Saytda ko'rinadigan dacha sharti: dacha ACTIVE va egasi APPROVED bo'lishi kerak.
+// Seller bloklansa/nofaol qilinsa dachalari avtomatik yashiriladi, blokdan chiqsa qaytadi.
+const visibleDachaWhere = {
+  status: 'ACTIVE',
+  seller: { status: 'APPROVED' },
+} as const;
+
 export default async function publicRoutes(app: FastifyInstance) {
+  // --- Sayt sozlamalari (aloqa + ijtimoiy tarmoqlar + Payme public config) ---
+  app.get('/settings', async () => {
+    const s = await prisma.siteSettings.upsert({ where: { id: 1 }, update: {}, create: {} });
+    return {
+      phone: s.phone,
+      email: s.email,
+      telegram: s.telegram,
+      instagram: s.instagram,
+      youtube: s.youtube,
+      updatedAt: s.updatedAt.toISOString(),
+      // Merchant ID public ma'lumot (checkout URL'da ochiq ko'rinadi); PAYME_KEY hech qachon berilmaydi!
+      payme: {
+        merchantId: env.payme.merchantId,
+        checkoutUrl: env.payme.checkoutUrl,
+      },
+    };
+  });
+
   // --- Zonalar ---
   app.get('/zones', async () => {
     const zones = await prisma.zone.findMany({
       where: { isActive: true },
       orderBy: { order: 'asc' },
-      include: { _count: { select: { dachas: { where: { status: 'ACTIVE' } } } } },
+      include: { _count: { select: { dachas: { where: visibleDachaWhere } } } },
     });
     return zones.map(zoneDTO);
   });
@@ -27,7 +53,7 @@ export default async function publicRoutes(app: FastifyInstance) {
     const { slug } = req.params as { slug: string };
     const zone = await prisma.zone.findUnique({
       where: { slug },
-      include: { _count: { select: { dachas: { where: { status: 'ACTIVE' } } } } },
+      include: { _count: { select: { dachas: { where: visibleDachaWhere } } } },
     });
     if (!zone || !zone.isActive) throw notFound('Zona topilmadi');
     return zoneDTO(zone);
@@ -51,7 +77,7 @@ export default async function publicRoutes(app: FastifyInstance) {
     const page = Math.max(1, Number(q.page ?? 1));
     const pageSize = Math.min(48, Math.max(1, Number(q.pageSize ?? 12)));
 
-    const where: Record<string, unknown> = { status: 'ACTIVE' };
+    const where: Record<string, unknown> = { ...visibleDachaWhere };
     if (q.zone) {
       const zone = await prisma.zone.findUnique({ where: { slug: q.zone } });
       if (zone) where.zoneId = zone.id;
@@ -126,7 +152,8 @@ export default async function publicRoutes(app: FastifyInstance) {
   app.get('/dachas/:slug', async (req) => {
     const { slug } = req.params as { slug: string };
     const dacha = await prisma.dacha.findUnique({ where: { slug }, include: dachaInclude });
-    if (!dacha || dacha.status !== 'ACTIVE') throw notFound('Dacha topilmadi');
+    if (!dacha || dacha.status !== 'ACTIVE' || dacha.seller.status !== 'APPROVED')
+      throw notFound('Dacha topilmadi');
 
     // Ko'rishlar sonini oshiramiz (fon rejimda)
     prisma.dacha
@@ -140,6 +167,13 @@ export default async function publicRoutes(app: FastifyInstance) {
   app.get('/dachas/:id/availability', async (req) => {
     const { id } = req.params as { id: string };
     const q = req.query as { from?: string; to?: string; month?: string };
+
+    const dacha = await prisma.dacha.findUnique({
+      where: { id },
+      select: { status: true, seller: { select: { status: true } } },
+    });
+    if (!dacha || dacha.status !== 'ACTIVE' || dacha.seller.status !== 'APPROVED')
+      throw notFound('Dacha topilmadi');
 
     let from: Date;
     let to: Date;
@@ -172,8 +206,12 @@ export default async function publicRoutes(app: FastifyInstance) {
       if (checkIn < new Date(Date.now() - 60 * 60 * 1000))
         throw badRequest('O\'tgan sanaga bron qilib bo\'lmaydi');
 
-      const dacha = await prisma.dacha.findUnique({ where: { id: data.dachaId } });
-      if (!dacha || dacha.status !== 'ACTIVE') throw notFound('Dacha topilmadi');
+      const dacha = await prisma.dacha.findUnique({
+        where: { id: data.dachaId },
+        include: { seller: { select: { status: true } } },
+      });
+      if (!dacha || dacha.status !== 'ACTIVE' || dacha.seller.status !== 'APPROVED')
+        throw notFound('Dacha topilmadi');
       if (data.guestsCount > dacha.capacity)
         throw badRequest(`Bu dacha maksimal ${dacha.capacity} kishiga mo'ljallangan`);
 

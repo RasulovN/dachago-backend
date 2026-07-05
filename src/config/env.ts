@@ -7,8 +7,8 @@ function req(name: string, fallback?: string): string {
   return v;
 }
 
-// apps/api/ ichidan ishga tushadi; standart yuklamalar papkasi repo ildizida
-const uploadDirRaw = process.env.UPLOAD_DIR ?? '../../uploads';
+// backend/ ichidan ishga tushadi; standart yuklamalar papkasi loyiha ildizida (dacha/uploads)
+const uploadDirRaw = process.env.UPLOAD_DIR ?? '../uploads';
 
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
