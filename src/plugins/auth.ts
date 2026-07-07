@@ -2,7 +2,7 @@ import fp from 'fastify-plugin';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import fastifyJwt from '@fastify/jwt';
 import { env } from '../config/env.js';
-import { unauthorized, forbidden } from '../lib/errors.js';
+import { unauthorized, forbidden } from '../common/errors.js';
 import type { UserRole } from '@dacha/shared';
 
 declare module 'fastify' {

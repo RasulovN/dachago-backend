@@ -19,12 +19,33 @@ enum UserStatus {
   BLOCKED
 }
 
-enum DachaStatus {
+// Barcha e'lon turlari uchun umumiy moderatsiya holati
+enum ListingStatus {
   DRAFT
   PENDING
   ACTIVE
   REJECTED
   ARCHIVED
+}
+
+// Xizmat turi — bron va qulayliklar lug'atida ishlatiladi
+enum ListingType {
+  DACHA
+  HOTEL
+  CAR
+}
+
+enum Transmission {
+  MANUAL
+  AUTOMATIC
+}
+
+enum FuelType {
+  PETROL
+  DIESEL
+  GAS
+  HYBRID
+  ELECTRIC
 }
 
 enum BookingStatus {
@@ -59,6 +80,8 @@ model User {
 
   sellerProfile SellerProfile?
   dachas        Dacha[]
+  hotels        Hotel[]
+  cars          Car[]
   refreshTokens RefreshToken[]
   payouts       Payout[]
 
@@ -91,6 +114,7 @@ model RefreshToken {
   @@index([userId])
 }
 
+// Hudud/zona — barcha modullar uchun umumiy reference lug'at
 model Zone {
   id       String  @id @default(cuid())
   slug     String  @unique
@@ -105,53 +129,61 @@ model Zone {
   order    Int     @default(0)
 
   dachas    Dacha[]
+  hotels    Hotel[]
+  cars      Car[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
+// Qulaylik — umumiy lug'at; `types` qaysi modullarga tegishliligini belgilaydi
 model Amenity {
-  id     String @id @default(cuid())
+  id     String        @id @default(cuid())
   icon   String
   nameUz String
   nameRu String
   nameEn String
-  order  Int    @default(0)
+  order  Int           @default(0)
+  types  ListingType[] @default([DACHA, HOTEL])
 
   dachas    DachaAmenity[]
+  hotels    HotelAmenity[]
+  cars      CarAmenity[]
   createdAt DateTime       @default(now())
 }
 
+// ==================== DACHA moduli ====================
+
 model Dacha {
-  id            String      @id @default(cuid())
-  slug          String      @unique
-  sellerId      String
-  seller        User        @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  zoneId        String
-  zone          Zone        @relation(fields: [zoneId], references: [id])
-  titleUz       String
-  titleRu       String
-  titleEn       String
-  descUz        String
-  descRu        String
-  descEn        String
-  pricePerDay   Int
-  priceWeekend  Int?
-  capacity      Int
-  rooms         Int
-  area          Int?
-  lat           Float
-  lng           Float
-  address       String
-  status        DachaStatus @default(PENDING)
+  id              String        @id @default(cuid())
+  slug            String        @unique
+  sellerId        String
+  seller          User          @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  zoneId          String
+  zone            Zone          @relation(fields: [zoneId], references: [id])
+  titleUz         String
+  titleRu         String
+  titleEn         String
+  descUz          String
+  descRu          String
+  descEn          String
+  pricePerDay     Int
+  priceWeekend    Int?
+  capacity        Int
+  rooms           Int
+  area            Int?
+  lat             Float
+  lng             Float
+  address         String
+  status          ListingStatus @default(PENDING)
   rejectionReason String?
-  depositEnabled Boolean    @default(false)
-  depositType   DepositType @default(FIXED)
-  depositValue  Int         @default(0)
-  checkInTime   String      @default("14:00")
-  checkOutTime  String      @default("12:00")
-  viewsCount    Int         @default(0)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  depositEnabled  Boolean       @default(false)
+  depositType     DepositType   @default(FIXED)
+  depositValue    Int           @default(0)
+  checkInTime     String        @default("14:00")
+  checkOutTime    String        @default("12:00")
+  viewsCount      Int           @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   images    DachaImage[]
   videos    DachaVideo[]
@@ -194,11 +226,197 @@ model DachaAmenity {
   @@id([dachaId, amenityId])
 }
 
+// ==================== HOTEL moduli ====================
+
+model Hotel {
+  id                String        @id @default(cuid())
+  slug              String        @unique
+  sellerId          String
+  seller            User          @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  zoneId            String
+  zone              Zone          @relation(fields: [zoneId], references: [id])
+  titleUz           String
+  titleRu           String
+  titleEn           String
+  descUz            String
+  descRu            String
+  descEn            String
+  starRating        Int           @default(3)
+  breakfastIncluded Boolean       @default(false)
+  hasConference     Boolean       @default(false)
+  // Eng arzon xona narxi (denormalizatsiya — xona CRUD'da qayta hisoblanadi)
+  priceFrom         Int           @default(0)
+  lat               Float
+  lng               Float
+  address           String
+  status            ListingStatus @default(PENDING)
+  rejectionReason   String?
+  depositEnabled    Boolean       @default(false)
+  depositType       DepositType   @default(FIXED)
+  depositValue      Int           @default(0)
+  checkInTime       String        @default("14:00")
+  checkOutTime      String        @default("12:00")
+  viewsCount        Int           @default(0)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  images    HotelImage[]
+  videos    HotelVideo[]
+  amenities HotelAmenity[]
+  rooms     HotelRoom[]
+
+  @@index([status])
+  @@index([zoneId])
+  @@index([sellerId])
+}
+
+model HotelVideo {
+  id      String @id @default(cuid())
+  hotelId String
+  hotel   Hotel  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  url     String
+  size    Int
+  order   Int    @default(0)
+
+  @@index([hotelId])
+}
+
+// Mehmonxona xona turi — narx va sig'im xonada; totalRooms = shu turdagi xonalar soni
+model HotelRoom {
+  id            String   @id @default(cuid())
+  hotelId       String
+  hotel         Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  nameUz        String
+  nameRu        String
+  nameEn        String
+  capacity      Int
+  pricePerNight Int
+  priceWeekend  Int?
+  totalRooms    Int      @default(1)
+  area          Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  bookings Booking[]
+
+  @@index([hotelId])
+}
+
+model HotelImage {
+  id       String @id @default(cuid())
+  hotelId  String
+  hotel    Hotel  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  url      String
+  thumbUrl String
+  order    Int    @default(0)
+
+  @@index([hotelId])
+}
+
+model HotelAmenity {
+  hotelId   String
+  hotel     Hotel   @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  amenityId String
+  amenity   Amenity @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  @@id([hotelId, amenityId])
+}
+
+// ==================== CAR moduli ====================
+
+model Car {
+  id              String        @id @default(cuid())
+  slug            String        @unique
+  sellerId        String
+  seller          User          @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  zoneId          String
+  zone            Zone          @relation(fields: [zoneId], references: [id])
+  titleUz         String
+  titleRu         String
+  titleEn         String
+  descUz          String
+  descRu          String
+  descEn          String
+  brand           String
+  carModel        String
+  year            Int
+  seats           Int
+  transmission    Transmission  @default(AUTOMATIC)
+  fuelType        FuelType      @default(PETROL)
+  driverIncluded  Boolean       @default(true)
+  routeInfo       String?
+  pricePerDay     Int
+  priceWeekend    Int?
+  lat             Float
+  lng             Float
+  address         String
+  status          ListingStatus @default(PENDING)
+  rejectionReason String?
+  depositEnabled  Boolean       @default(false)
+  depositType     DepositType   @default(FIXED)
+  depositValue    Int           @default(0)
+  viewsCount      Int           @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  images    CarImage[]
+  videos    CarVideo[]
+  amenities CarAmenity[]
+  bookings  Booking[]
+
+  @@index([status])
+  @@index([zoneId])
+  @@index([sellerId])
+  @@index([brand])
+}
+
+model CarVideo {
+  id    String @id @default(cuid())
+  carId String
+  car   Car    @relation(fields: [carId], references: [id], onDelete: Cascade)
+  url   String
+  size  Int
+  order Int    @default(0)
+
+  @@index([carId])
+}
+
+model CarImage {
+  id       String @id @default(cuid())
+  carId    String
+  car      Car    @relation(fields: [carId], references: [id], onDelete: Cascade)
+  url      String
+  thumbUrl String
+  order    Int    @default(0)
+
+  @@index([carId])
+}
+
+model CarAmenity {
+  carId     String
+  car       Car     @relation(fields: [carId], references: [id], onDelete: Cascade)
+  amenityId String
+  amenity   Amenity @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  @@id([carId, amenityId])
+}
+
+// ==================== BOOKING (umumiy entity, polymorphic FK) ====================
+
 model Booking {
-  id            String        @id @default(cuid())
-  code          String        @unique
-  dachaId       String
-  dacha         Dacha         @relation(fields: [dachaId], references: [id], onDelete: Cascade)
+  id          String      @id @default(cuid())
+  code        String      @unique
+  listingType ListingType @default(DACHA)
+  // Har bron faqat bitta xizmatga bog'lanadi — turga mos FK to'ldiriladi
+  dachaId     String?
+  dacha       Dacha?      @relation(fields: [dachaId], references: [id], onDelete: Cascade)
+  hotelRoomId String?
+  hotelRoom   HotelRoom?  @relation(fields: [hotelRoomId], references: [id], onDelete: Cascade)
+  carId       String?
+  car         Car?        @relation(fields: [carId], references: [id], onDelete: Cascade)
+  // Mehmonxona broni uchun: nechta xona band qilingan
+  roomsCount  Int         @default(1)
+
   guestName     String
   guestPhone    String
   checkIn       DateTime
@@ -221,18 +439,21 @@ model Booking {
   transactions PaymeTransaction[]
 
   @@index([dachaId, status])
+  @@index([hotelRoomId, status])
+  @@index([carId, status])
+  @@index([listingType])
   @@index([status])
   @@index([payoutId])
 }
 
 // Sellerga zaklad mablag'ini o'tkazish hujjati — bir to'lov bir nechta bronni qamrab oladi
 model Payout {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   sellerId  String
-  seller    User     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  seller    User      @relation(fields: [sellerId], references: [id], onDelete: Cascade)
   amount    Int
-  note      String   @default("")
-  createdAt DateTime @default(now())
+  note      String    @default("")
+  createdAt DateTime  @default(now())
   bookings  Booking[]
 
   @@index([sellerId])
@@ -257,9 +478,9 @@ model PaymeTransaction {
 model SiteSettings {
   id        Int      @id @default(1)
   phone     String   @default("+998 78 113 00 13")
-  email     String   @default("info@dachago.uz")
-  telegram  String   @default("https://t.me/dachago_uz")
-  instagram String   @default("https://instagram.com/dachago.uz")
-  youtube   String   @default("https://youtube.com/@dachago")
+  email     String   @default("info@sayohatgo.uz")
+  telegram  String   @default("https://t.me/sayohatgo_uz")
+  instagram String   @default("https://instagram.com/sayohatgo.uz")
+  youtube   String   @default("https://youtube.com/@sayohatgo")
   updatedAt DateTime @default(now()) @updatedAt
 }

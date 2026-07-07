@@ -1,4 +1,4 @@
-# DachaGo Backend 🔧
+# Sayohat-go Backend 🔧
 
 Fastify 5 + Prisma + PostgreSQL asosidagi REST API. Dachalar, bronlar, sotuvchilar, admin moderatsiyasi, Payme to'lovlari va tarjima xizmatini boshqaradi.
 

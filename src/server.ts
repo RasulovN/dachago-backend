@@ -1,7 +1,7 @@
 import { buildApp } from './app.js';
 import { env } from './config/env.js';
-import { startCron } from './services/cron.js';
-import { prisma } from './lib/prisma.js';
+import { startCron } from './modules/booking/booking.cron.js';
+import { prisma } from './common/prisma.js';
 
 async function main() {
   const app = await buildApp();

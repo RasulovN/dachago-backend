@@ -25,9 +25,8 @@ export const env = {
   },
 
   cors: {
-    webOrigin: process.env.WEB_ORIGIN ?? 'http://localhost:5173',
-    adminOrigin: process.env.ADMIN_ORIGIN ?? 'http://localhost:5174',
-    landingOrigin: process.env.LANDING_ORIGIN ?? 'http://localhost:5175',
+    webOrigin: process.env.WEB_ORIGIN, 
+    landingOrigin: process.env.LANDING_ORIGIN,
   },
 
   // Absolyut yo'lga aylantiramiz (process.cwd() = backend/ ishga tushganda)

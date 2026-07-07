@@ -1,11 +1,16 @@
 import type {
   UserRole,
   UserStatus,
-  DachaStatus,
+  ListingStatus,
   BookingStatus,
   PaymentStatus,
   DepositType,
+  ListingType,
+  Transmission,
+  FuelType,
 } from './constants.js';
+
+/* ==================== Umumiy ==================== */
 
 export interface AuthUser {
   id: string;
@@ -32,6 +37,8 @@ export interface ZoneDTO {
   image: string | null;
   isActive: boolean;
   dachaCount?: number;
+  hotelCount?: number;
+  carCount?: number;
 }
 
 export interface AmenityDTO {
@@ -40,69 +47,28 @@ export interface AmenityDTO {
   nameUz: string;
   nameRu: string;
   nameEn: string;
+  types: ListingType[];
 }
 
-export interface DachaImageDTO {
+export interface MediaImageDTO {
   id: string;
   url: string;
   thumbUrl: string;
   order: number;
 }
 
-export interface DachaVideoDTO {
+export interface MediaVideoDTO {
   id: string;
   url: string;
   size: number;
 }
 
-export interface DachaDTO {
+export interface ListingSellerDTO {
   id: string;
-  slug: string;
-  titleUz: string;
-  titleRu: string;
-  titleEn: string;
-  descUz: string;
-  descRu: string;
-  descEn: string;
-  pricePerDay: number;
-  priceWeekend: number | null;
-  capacity: number;
-  rooms: number;
-  area: number | null;
-  lat: number;
-  lng: number;
-  address: string;
-  status: DachaStatus;
-  rejectionReason?: string | null;
-  depositEnabled: boolean;
-  depositType: DepositType;
-  depositValue: number;
-  checkInTime: string;
-  checkOutTime: string;
-  viewsCount: number;
-  zone?: ZoneDTO;
-  images: DachaImageDTO[];
-  videos: DachaVideoDTO[];
-  amenities: AmenityDTO[];
-  seller?: { id: string; firstName: string; lastName: string; phone: string; companyName: string | null };
-}
-
-export interface BookingDTO {
-  id: string;
-  code: string;
-  dachaId: string;
-  guestName: string;
-  guestPhone: string;
-  checkIn: string;
-  checkOut: string;
-  guestsCount: number;
-  totalPrice: number;
-  depositAmount: number | null;
-  status: BookingStatus;
-  paymentStatus: PaymentStatus;
-  note: string | null;
-  createdAt: string;
-  dacha?: Pick<DachaDTO, 'id' | 'slug' | 'titleUz' | 'titleRu' | 'titleEn' | 'images'>;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  companyName: string | null;
 }
 
 export interface Paginated<T> {
@@ -128,4 +94,186 @@ export interface SiteSettingsDTO {
   updatedAt?: string;
   /** Payme public konfiguratsiyasi — backend .env dan keladi (kalit emas!) */
   payme?: { merchantId: string; checkoutUrl: string };
+}
+
+/* ==================== Dacha moduli ==================== */
+
+export interface DachaDTO {
+  id: string;
+  slug: string;
+  titleUz: string;
+  titleRu: string;
+  titleEn: string;
+  descUz: string;
+  descRu: string;
+  descEn: string;
+  pricePerDay: number;
+  priceWeekend: number | null;
+  capacity: number;
+  rooms: number;
+  area: number | null;
+  lat: number;
+  lng: number;
+  address: string;
+  status: ListingStatus;
+  rejectionReason?: string | null;
+  depositEnabled: boolean;
+  depositType: DepositType;
+  depositValue: number;
+  checkInTime: string;
+  checkOutTime: string;
+  viewsCount: number;
+  createdAt?: string | Date;
+  zone?: ZoneDTO;
+  images: MediaImageDTO[];
+  videos: MediaVideoDTO[];
+  amenities: AmenityDTO[];
+  seller?: ListingSellerDTO;
+}
+
+/* ==================== Hotel moduli ==================== */
+
+export interface HotelRoomDTO {
+  id: string;
+  hotelId: string;
+  nameUz: string;
+  nameRu: string;
+  nameEn: string;
+  capacity: number;
+  pricePerNight: number;
+  priceWeekend: number | null;
+  totalRooms: number;
+  area: number | null;
+}
+
+export interface HotelDTO {
+  id: string;
+  slug: string;
+  titleUz: string;
+  titleRu: string;
+  titleEn: string;
+  descUz: string;
+  descRu: string;
+  descEn: string;
+  starRating: number;
+  breakfastIncluded: boolean;
+  hasConference: boolean;
+  priceFrom: number;
+  lat: number;
+  lng: number;
+  address: string;
+  status: ListingStatus;
+  rejectionReason?: string | null;
+  depositEnabled: boolean;
+  depositType: DepositType;
+  depositValue: number;
+  checkInTime: string;
+  checkOutTime: string;
+  viewsCount: number;
+  createdAt?: string | Date;
+  zone?: ZoneDTO;
+  rooms: HotelRoomDTO[];
+  images: MediaImageDTO[];
+  videos: MediaVideoDTO[];
+  amenities: AmenityDTO[];
+  seller?: ListingSellerDTO;
+}
+
+/* ==================== Car moduli ==================== */
+
+export interface CarDTO {
+  id: string;
+  slug: string;
+  titleUz: string;
+  titleRu: string;
+  titleEn: string;
+  descUz: string;
+  descRu: string;
+  descEn: string;
+  brand: string;
+  carModel: string;
+  year: number;
+  seats: number;
+  transmission: Transmission;
+  fuelType: FuelType;
+  driverIncluded: boolean;
+  routeInfo: string | null;
+  pricePerDay: number;
+  priceWeekend: number | null;
+  lat: number;
+  lng: number;
+  address: string;
+  status: ListingStatus;
+  rejectionReason?: string | null;
+  depositEnabled: boolean;
+  depositType: DepositType;
+  depositValue: number;
+  viewsCount: number;
+  createdAt?: string | Date;
+  zone?: ZoneDTO;
+  images: MediaImageDTO[];
+  videos: MediaVideoDTO[];
+  amenities: AmenityDTO[];
+  seller?: ListingSellerDTO;
+}
+
+/* ==================== Booking (umumiy) ==================== */
+
+/** Bron qaysi e'longa tegishli — turi bilan qisqa ma'lumot */
+export interface BookingListingRefDTO {
+  type: ListingType;
+  id: string;
+  slug: string;
+  titleUz: string;
+  titleRu: string;
+  titleEn: string;
+  image: string | null;
+  /** Faqat mehmonxona bronida: xona nomi */
+  roomNameUz?: string;
+  roomNameRu?: string;
+  roomNameEn?: string;
+}
+
+export interface BookingDTO {
+  id: string;
+  code: string;
+  listingType: ListingType;
+  guestName: string;
+  guestPhone: string;
+  checkIn: string;
+  checkOut: string;
+  guestsCount: number;
+  roomsCount: number;
+  totalPrice: number;
+  depositAmount: number | null;
+  status: BookingStatus;
+  paymentStatus: PaymentStatus;
+  note: string | null;
+  createdAt: string;
+  listing?: BookingListingRefDTO;
+}
+
+/* ==================== Birlashgan katalog kartasi ==================== */
+
+export interface ListingCardDTO {
+  type: ListingType;
+  id: string;
+  slug: string;
+  titleUz: string;
+  titleRu: string;
+  titleEn: string;
+  price: number;
+  image: string | null;
+  zone?: ZoneDTO;
+  createdAt?: string | Date;
+  viewsCount?: number;
+  // Dacha
+  capacity?: number;
+  rooms?: number;
+  // Hotel
+  starRating?: number;
+  // Car
+  brand?: string;
+  carModel?: string;
+  seats?: number;
 }

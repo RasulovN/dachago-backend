@@ -8,8 +8,20 @@ export type UserRole = (typeof USER_ROLES)[number];
 export const USER_STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'BLOCKED'] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
 
-export const DACHA_STATUSES = ['DRAFT', 'PENDING', 'ACTIVE', 'REJECTED', 'ARCHIVED'] as const;
-export type DachaStatus = (typeof DACHA_STATUSES)[number];
+// Barcha e'lon turlari uchun umumiy moderatsiya holati
+export const LISTING_STATUSES = ['DRAFT', 'PENDING', 'ACTIVE', 'REJECTED', 'ARCHIVED'] as const;
+export type ListingStatus = (typeof LISTING_STATUSES)[number];
+
+// Marketplace xizmat turlari: dacha, mehmonxona, avto ijara
+export const LISTING_TYPES = ['DACHA', 'HOTEL', 'CAR'] as const;
+export type ListingType = (typeof LISTING_TYPES)[number];
+
+// Avto: uzatmalar qutisi va yoqilg'i turi
+export const TRANSMISSIONS = ['MANUAL', 'AUTOMATIC'] as const;
+export type Transmission = (typeof TRANSMISSIONS)[number];
+
+export const FUEL_TYPES = ['PETROL', 'DIESEL', 'GAS', 'HYBRID', 'ELECTRIC'] as const;
+export type FuelType = (typeof FUEL_TYPES)[number];
 
 export const BOOKING_STATUSES = [
   'PENDING',
@@ -26,10 +38,10 @@ export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 export const DEPOSIT_TYPES = ['FIXED', 'PERCENT'] as const;
 export type DepositType = (typeof DEPOSIT_TYPES)[number];
 
-// Media limitlari
-export const MAX_IMAGES_PER_DACHA = 15;
+// Media limitlari (har e'lon uchun)
+export const MAX_IMAGES_PER_LISTING = 15;
 export const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
-export const MAX_VIDEOS_PER_DACHA = 2;
+export const MAX_VIDEOS_PER_LISTING = 2;
 export const MAX_VIDEO_SIZE = 200 * 1024 * 1024; // 200MB
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/avif'];
 export const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
